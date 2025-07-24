@@ -14,7 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      entidades_mitologicas: {
+        Row: {
+          categoria: string
+          created_at: string
+          descricao: string | null
+          dominios: string[] | null
+          id: string
+          imagem_url: string | null
+          nome: string
+          poderes: string[] | null
+          relacoes: Json | null
+          simbolos: string[] | null
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          categoria: string
+          created_at?: string
+          descricao?: string | null
+          dominios?: string[] | null
+          id?: string
+          imagem_url?: string | null
+          nome: string
+          poderes?: string[] | null
+          relacoes?: Json | null
+          simbolos?: string[] | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          descricao?: string | null
+          dominios?: string[] | null
+          id?: string
+          imagem_url?: string | null
+          nome?: string
+          poderes?: string[] | null
+          relacoes?: Json | null
+          simbolos?: string[] | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
