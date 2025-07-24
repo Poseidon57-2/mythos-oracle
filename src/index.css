@@ -2,41 +2,65 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+/* Greek Mythology Portal Design System
+Inspired by ancient Greece with classical elegance
 All colors MUST be HSL.
 */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Greek Mythology Color Palette */
+    --background: 210 20% 97%; /* Light marble */
+    --foreground: 214 100% 14%; /* Deep Aegean blue */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%; /* Pure marble white */
+    --card-foreground: 214 100% 14%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 214 100% 14%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary: Deep Aegean Blue */
+    --primary: 214 100% 14%; /* #011f4b */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary: Olympian Gold */
+    --secondary: 51 73% 52%; /* #d4af37 */
+    --secondary-foreground: 214 100% 14%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Muted: Light marble tones */
+    --muted: 210 15% 95%;
+    --muted-foreground: 214 40% 40%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Accent: Warm gold highlights */
+    --accent: 51 73% 52%;
+    --accent-foreground: 214 100% 14%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 210 20% 88%;
+    --input: 210 20% 88%;
+    --ring: 51 73% 52%;
 
     --radius: 0.5rem;
+
+    /* Custom Greek-themed colors */
+    --gold-light: 51 73% 65%;
+    --gold-dark: 51 73% 42%;
+    --marble: 210 15% 95%;
+    --bronze: 30 44% 35%;
+    
+    /* Gradients */
+    --gradient-olympian: linear-gradient(135deg, hsl(214 100% 14%), hsl(214 80% 25%));
+    --gradient-gold: linear-gradient(135deg, hsl(51 73% 52%), hsl(51 73% 42%));
+    --gradient-marble: linear-gradient(180deg, hsl(210 15% 98%), hsl(210 15% 95%));
+    
+    /* Shadows */
+    --shadow-olympian: 0 10px 30px -10px hsl(214 100% 14% / 0.3);
+    --shadow-gold: 0 5px 20px -5px hsl(51 73% 52% / 0.4);
+    
+    /* Transitions */
+    --transition-olympian: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     --sidebar-background: 0 0% 98%;
 

@@ -18,6 +18,10 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: {
+				'cinzel': ['Cinzel', 'serif'],
+				'cinzel-decorative': ['Cinzel Decorative', 'serif'],
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -61,7 +65,27 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				// Greek mythology theme colors
+				'gold': {
+					light: 'hsl(var(--gold-light))',
+					DEFAULT: 'hsl(var(--secondary))',
+					dark: 'hsl(var(--gold-dark))'
+				},
+				'marble': 'hsl(var(--marble))',
+				'bronze': 'hsl(var(--bronze))'
+			},
+			backgroundImage: {
+				'gradient-olympian': 'var(--gradient-olympian)',
+				'gradient-gold': 'var(--gradient-gold)',
+				'gradient-marble': 'var(--gradient-marble)',
+			},
+			boxShadow: {
+				'olympian': 'var(--shadow-olympian)',
+				'gold': 'var(--shadow-gold)',
+			},
+			transitionTimingFunction: {
+				'olympian': 'var(--transition-olympian)',
 			},
 			borderRadius: {
 				lg: 'var(--radius)',

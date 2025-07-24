@@ -1,0 +1,204 @@
+import { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Clock, ChevronDown, ChevronUp, Globe, Swords, Crown, Star } from "lucide-react";
+import { timelineEvents } from "@/data/mockData";
+
+const TimelinePage = () => {
+  const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+
+  const getCategoryIcon = (category: string) => {
+    switch(category) {
+      case "cosmogonia": return Globe;
+      case "guerra": return Swords;
+      case "nascimento": return Star;
+      default: return Crown;
+    }
+  };
+
+  const getCategoryColor = (category: string) => {
+    switch(category) {
+      case "cosmogonia": return "bg-bronze text-white";
+      case "guerra": return "bg-destructive text-white";
+      case "nascimento": return "bg-gradient-gold text-primary";
+      default: return "bg-gradient-olympian text-white";
+    }
+  };
+
+  const toggleExpand = (eventId: string) => {
+    setExpandedEvent(expandedEvent === eventId ? null : eventId);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-marble">
+      {/* Header */}
+      <section className="bg-gradient-olympian text-white py-16">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <div className="w-20 h-20 bg-gradient-gold rounded-full flex items-center justify-center mx-auto mb-6">
+              <Clock className="h-10 w-10 text-primary" />
+            </div>
+            <h1 className="text-5xl font-cinzel-decorative font-bold mb-4">
+              Linha do Tempo
+            </h1>
+            <p className="text-xl text-gold font-cinzel mb-6">
+              Cronologia da Mitologia Grega
+            </p>
+            <p className="text-lg text-white/90 font-cinzel max-w-3xl mx-auto">
+              Acompanhe a evolução da mitologia grega desde o Caos primordial 
+              até a era dos heróis. Uma jornada através das eras que moldaram 
+              o panteão grego e suas lendas mais marcantes.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Timeline Overview */}
+      <section className="py-12">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+            <Card className="text-center p-6 bg-bronze/10 border-bronze">
+              <Globe className="h-12 w-12 text-bronze mx-auto mb-4" />
+              <h3 className="text-xl font-cinzel-decorative font-semibold text-primary mb-2">
+                Tempo Primordial
+              </h3>
+              <p className="font-cinzel text-muted-foreground text-sm">
+                Do Caos à criação do mundo
+              </p>
+            </Card>
+
+            <Card className="text-center p-6 bg-primary/10 border-primary">
+              <Crown className="h-12 w-12 text-primary mx-auto mb-4" />
+              <h3 className="text-xl font-cinzel-decorative font-semibold text-primary mb-2">
+                Era dos Titãs
+              </h3>
+              <p className="font-cinzel text-muted-foreground text-sm">
+                Domínio dos Titãs e Cronos
+              </p>
+            </Card>
+
+            <Card className="text-center p-6 bg-gold/10 border-gold">
+              <Star className="h-12 w-12 text-gold mx-auto mb-4" />
+              <h3 className="text-xl font-cinzel-decorative font-semibold text-primary mb-2">
+                Era Olímpica
+              </h3>
+              <p className="font-cinzel text-muted-foreground text-sm">
+                Reino de Zeus e os Olímpicos
+              </p>
+            </Card>
+
+            <Card className="text-center p-6 bg-destructive/10 border-destructive">
+              <Swords className="h-12 w-12 text-destructive mx-auto mb-4" />
+              <h3 className="text-xl font-cinzel-decorative font-semibold text-primary mb-2">
+                Era Heroica
+              </h3>
+              <p className="font-cinzel text-muted-foreground text-sm">
+                Tempo dos grandes heróis
+              </p>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Timeline Events */}
+      <section className="pb-20">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl font-cinzel-decorative font-bold text-primary mb-8 text-center">
+              Eventos Principais
+            </h2>
+            
+            <div className="relative">
+              {/* Timeline Line */}
+              <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-bronze via-primary to-gold"></div>
+              
+              <div className="space-y-8">
+                {timelineEvents.map((event, index) => {
+                  const IconComponent = getCategoryIcon(event.categoria);
+                  const isExpanded = expandedEvent === event.id;
+                  
+                  return (
+                    <div key={event.id} className="relative">
+                      {/* Timeline Dot */}
+                      <div className={`absolute left-6 w-4 h-4 rounded-full border-2 border-white ${getCategoryColor(event.categoria)}`}></div>
+                      
+                      {/* Event Card */}
+                      <div className="ml-16">
+                        <Card className="hover:shadow-olympian transition-all duration-300">
+                          <CardHeader 
+                            className="cursor-pointer"
+                            onClick={() => toggleExpand(event.id)}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-4">
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${getCategoryColor(event.categoria)}`}>
+                                  <IconComponent className="h-6 w-6" />
+                                </div>
+                                <div>
+                                  <CardTitle className="font-cinzel-decorative text-xl text-primary">
+                                    {event.titulo}
+                                  </CardTitle>
+                                  <CardDescription className="font-cinzel font-semibold text-gold">
+                                    {event.periodo}
+                                  </CardDescription>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Badge className={`font-cinzel ${getCategoryColor(event.categoria)}`}>
+                                  {event.categoria}
+                                </Badge>
+                                {isExpanded ? (
+                                  <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                                ) : (
+                                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                                )}
+                              </div>
+                            </div>
+                          </CardHeader>
+                          
+                          {isExpanded && (
+                            <CardContent>
+                              <p className="font-cinzel text-muted-foreground leading-relaxed">
+                                {event.descricao}
+                              </p>
+                            </CardContent>
+                          )}
+                        </Card>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Expand All Section */}
+      <section className="py-12 bg-background">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-3xl font-cinzel-decorative font-bold text-primary mb-6">
+            Explore Mais Profundamente
+          </h2>
+          <p className="text-lg text-muted-foreground font-cinzel mb-8 max-w-2xl mx-auto">
+            Cada era da mitologia grega possui suas próprias características únicas 
+            e personagens marcantes. Explore cada categoria para entender melhor 
+            a evolução do panteão grego.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button size="lg" className="font-cinzel">
+              Ver Todos os Eventos
+            </Button>
+            <Button size="lg" variant="outline" className="font-cinzel">
+              Filtrar por Era
+            </Button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+export default TimelinePage;
