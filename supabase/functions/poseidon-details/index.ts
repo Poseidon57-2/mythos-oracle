@@ -1,109 +1,184 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
+
+interface RequestBody {
+  nome?: string;
+  type?: 'god' | 'blog';
+  id?: string;
+  action?: string;
+}
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { action, transcribedText } = await req.json();
+    const { nome, type = 'god', id, action }: RequestBody = await req.json()
     
-    // Verify the secret token
-    const verMaisToken = Deno.env.get('VER_MAIS_POSEIDON');
-    const authHeader = req.headers.get('Authorization');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('VER_MAIS_POSEIDON')!
     
-    if (!authHeader || !authHeader.includes(verMaisToken)) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const supabase = createClient(supabaseUrl, supabaseKey)
 
-    if (action === 'get_poseidon') {
-      // Create Supabase client with service role for server access
-      const supabase = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      );
+    // Handle blog post requests
+    if (type === 'blog') {
+      // List all blog posts
+      if (action === 'list') {
+        const { data: posts, error } = await supabase
+          .from('posts_blog')
+          .select('id, titulo, resumo, data_publicacao, tags')
+          .order('data_publicacao', { ascending: false })
 
-      const { data: poseidon, error } = await supabase
-        .from('entidades_mitologicas')
+        if (error) {
+          console.error('Erro do Supabase (blog list):', error)
+          return new Response(
+            JSON.stringify({ error: 'Erro ao buscar posts' }),
+            { 
+              status: 500, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          )
+        }
+
+        return new Response(
+          JSON.stringify({ posts }),
+          { 
+            status: 200, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+
+      // Get specific blog post
+      if (!id) {
+        return new Response(
+          JSON.stringify({ error: 'ID é obrigatório para posts do blog' }),
+          { 
+            status: 400, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+
+      const { data: post, error } = await supabase
+        .from('posts_blog')
         .select('*')
-        .eq('nome', 'Poseidon')
-        .maybeSingle();
+        .eq('id', id)
+        .single()
 
       if (error) {
-        throw new Error(`Database error: ${error.message}`);
+        console.error('Erro do Supabase (blog):', error)
+        return new Response(
+          JSON.stringify({ error: 'Post não encontrado' }),
+          { 
+            status: 404, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
       }
 
-      if (!poseidon) {
-        return new Response(JSON.stringify({ error: 'Poseidon not found' }), {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      return new Response(JSON.stringify({ poseidon }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ post }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
     }
 
-    if (action === 'get_curiosity' && transcribedText) {
-      const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-      
-      if (!GEMINI_API_KEY) {
-        throw new Error('GEMINI_API_KEY is not configured');
-      }
+    // Handle god entity requests (existing logic)
+    if (!nome) {
+      return new Response(
+        JSON.stringify({ error: 'Nome é obrigatório' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
-        {
+    const { data: entidade, error } = await supabase
+      .from('entidades_mitologicas')
+      .select('*')
+      .eq('nome', nome)
+      .single()
+
+    if (error) {
+      console.error('Erro do Supabase:', error)
+      return new Response(
+        JSON.stringify({ error: 'Entidade não encontrada' }),
+        { 
+          status: 404, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Usar Gemini para gerar conteúdo adicional se necessário
+    const geminiApiKey = Deno.env.get('VER_MAIS_POSEIDON')
+    if (geminiApiKey && (!entidade.descricao || entidade.descricao.length < 100)) {
+      try {
+        const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({
-            contents: [{ 
-              parts: [{ 
-                text: `Como especialista em mitologia grega, conte uma curiosidade interessante sobre Poseidon relacionada a: "${transcribedText}". Responda em português brasileiro, de forma educativa e envolvente, em no máximo 150 palavras.` 
-              }] 
+            contents: [{
+              parts: [{
+                text: `Gere uma descrição completa, poderes, domínios, símbolos e imagem representativa do deus grego ${nome}, em tom educativo e clássico. Formate a resposta em JSON com as propriedades: descricao, poderes, dominios, simbolos.`
+              }]
             }],
             generationConfig: {
               temperature: 0.7,
-              maxOutputTokens: 200
+              maxOutputTokens: 1000,
             }
           })
+        })
+
+        if (geminiResponse.ok) {
+          const geminiData = await geminiResponse.json()
+          const generatedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
+          
+          if (generatedText) {
+            try {
+              const parsedContent = JSON.parse(generatedText)
+              entidade.descricao = parsedContent.descricao || entidade.descricao
+              entidade.poderes = parsedContent.poderes || entidade.poderes
+              entidade.dominios = parsedContent.dominios || entidade.dominios
+              entidade.simbolos = parsedContent.simbolos || entidade.simbolos
+            } catch (parseError) {
+              console.log('Erro ao parsear resposta do Gemini, usando dados do banco')
+            }
+          }
         }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Gemini API error: ${await response.text()}`);
+      } catch (geminiError) {
+        console.log('Erro ao conectar com Gemini, usando dados do banco')
       }
-
-      const data = await response.json();
-      const curiosity = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Não foi possível gerar uma curiosidade no momento.';
-
-      return new Response(JSON.stringify({ curiosity }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
     }
 
-    return new Response(JSON.stringify({ error: 'Invalid action' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ entidade }),
+      { 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
 
   } catch (error) {
-    console.error('Error in poseidon-details function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('Erro na função:', error)
+    return new Response(
+      JSON.stringify({ error: 'Erro interno do servidor' }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
   }
-});
+})

@@ -1,20 +1,68 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, BookOpen, Calendar, Clock } from "lucide-react";
-import { blogPosts } from "@/data/mockData";
+import { BlogDetailsModal } from "@/components/BlogDetailsModal";
+import { supabase } from "@/integrations/supabase/client";
+
+interface BlogPost {
+  id: string;
+  titulo: string;
+  resumo: string;
+  data_publicacao: string;
+  tags: string[];
+}
 
 const BlogPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   const filteredPosts = blogPosts.filter(post => 
     post.titulo.toLowerCase().includes(searchQuery.toLowerCase()) ||
     post.resumo.toLowerCase().includes(searchQuery.toLowerCase()) ||
     post.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  useEffect(() => {
+    fetchBlogPosts();
+  }, []);
+
+  const fetchBlogPosts = async () => {
+    try {
+      // Use the edge function to fetch blog posts
+      const { data, error } = await supabase.functions.invoke('poseidon-details', {
+        body: { type: 'blog', action: 'list' }
+      });
+
+      if (error) {
+        console.error('Erro ao buscar posts:', error);
+        return;
+      }
+
+      if (data?.posts) {
+        setBlogPosts(data.posts);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar posts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReadMore = (postId: string) => {
+    setSelectedPostId(postId);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedPostId(null);
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR', {
@@ -74,7 +122,7 @@ const BlogPage = () => {
       </section>
 
       {/* Featured Post */}
-      {filteredPosts.length > 0 && (
+      {filteredPosts.length > 0 && !loading && (
         <section className="py-8">
           <div className="container mx-auto px-4">
             <div className="max-w-4xl mx-auto">
@@ -100,7 +148,7 @@ const BlogPage = () => {
                       {filteredPosts[0].resumo}
                     </p>
                     <div className="flex flex-wrap gap-2 mb-4">
-                      {filteredPosts[0].tags.map((tag, index) => (
+                      {filteredPosts[0].tags?.map((tag, index) => (
                         <Badge 
                           key={index} 
                           className={`font-cinzel ${getPostCategoryColor(filteredPosts[0].tags)}`}
@@ -109,15 +157,26 @@ const BlogPage = () => {
                         </Badge>
                       ))}
                     </div>
-                    <Button asChild className="font-cinzel">
-                      <Link to={`/blog/${filteredPosts[0].id}`}>
-                        Ler Artigo Completo
-                      </Link>
+                    <Button 
+                      onClick={() => handleReadMore(filteredPosts[0].id)}
+                      className="font-cinzel"
+                    >
+                      Ler Artigo Completo
                     </Button>
                   </div>
                 </div>
               </Card>
             </div>
+          </div>
+        </section>
+      )}
+
+      {/* Loading State */}
+      {loading && (
+        <section className="py-12">
+          <div className="container mx-auto px-4 text-center">
+            <div className="animate-spin w-8 h-8 border-2 border-gold border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p className="font-cinzel text-muted-foreground">Carregando artigos...</p>
           </div>
         </section>
       )}
@@ -158,17 +217,19 @@ const BlogPage = () => {
 
                 <CardContent className="space-y-4">
                   <div className="flex flex-wrap gap-1">
-                    {post.tags.slice(0, 3).map((tag, index) => (
+                    {post.tags?.slice(0, 3).map((tag, index) => (
                       <Badge key={index} variant="outline" className="text-xs font-cinzel">
                         {tag}
                       </Badge>
                     ))}
                   </div>
 
-                  <Button asChild variant="outline" className="w-full font-cinzel">
-                    <Link to={`/blog/${post.id}`}>
-                      Ler Mais
-                    </Link>
+                  <Button 
+                    variant="outline" 
+                    className="w-full font-cinzel"
+                    onClick={() => handleReadMore(post.id)}
+                  >
+                    Ler Mais
                   </Button>
                 </CardContent>
               </Card>
@@ -233,6 +294,13 @@ const BlogPage = () => {
           </div>
         </div>
       </section>
+
+      {/* Blog Details Modal */}
+      <BlogDetailsModal 
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        postId={selectedPostId}
+      />
     </div>
   );
 };
