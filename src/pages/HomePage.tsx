@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Scroll, BookOpen, Crown, Sword, Clock } from "lucide-react";
 import heroImage from "@/assets/hero-temple.jpg";
-import PoseidonDetails from "@/components/PoseidonDetails";
 
 const HomePage = () => {
   const categories = [
@@ -153,20 +152,6 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Poseidon Details Section */}
-      <section className="py-20 bg-background">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-cinzel-decorative font-bold text-primary mb-4">
-              Funcionalidade Especial
-            </h2>
-            <p className="text-xl text-muted-foreground font-cinzel max-w-2xl mx-auto">
-              Explore Poseidon de forma interativa com reconhecimento de voz e IA
-            </p>
-          </div>
-          <PoseidonDetails />
-        </div>
-      </section>
 
       {/* CTA Section */}
       <section className="py-20 bg-gradient-olympian text-white">

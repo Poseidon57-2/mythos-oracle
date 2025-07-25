@@ -1,27 +1,88 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Crown, Zap, Waves } from "lucide-react";
-import { mythEntities } from "@/data/mockData";
+import { Search, Crown, Zap, Waves, Shield, Heart, Sun, Moon, Sword, Hammer, Wind, Home, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import GodDetailsModal from "@/components/GodDetailsModal";
+
+interface GodEntity {
+  id: string;
+  nome: string;
+  categoria: string;
+  descricao: string;
+  dominios: string[];
+  poderes: string[];
+  simbolos: string[];
+  tags: string[];
+  imagem_url?: string;
+}
 
 const OlimpoPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [gods, setGods] = useState<GodEntity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedGod, setSelectedGod] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
-  const olimpicEntities = mythEntities.filter(entity => entity.categoria === "olimpico");
-  const filteredEntities = olimpicEntities.filter(entity => 
-    entity.nome.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    entity.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredGods = gods.filter(god => 
+    god.nome.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    god.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const getEntityIcon = (entityId: string) => {
-    switch(entityId) {
+  const getGodIcon = (godName: string) => {
+    switch(godName.toLowerCase()) {
       case "zeus": return Zap;
       case "poseidon": return Waves;
+      case "atena": return Shield;
+      case "afrodite": return Heart;
+      case "apolo": return Sun;
+      case "ártemis": return Moon;
+      case "ares": return Sword;
+      case "hefesto": return Hammer;
+      case "hermes": return Wind;
+      case "héstia": return Home;
+      case "hera": return Crown;
+      case "deméter": return Crown;
       default: return Crown;
     }
+  };
+
+  useEffect(() => {
+    fetchOlympianGods();
+  }, []);
+
+  const fetchOlympianGods = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('entidades_mitologicas')
+        .select('*')
+        .eq('categoria', 'olimpico')
+        .order('nome');
+
+      if (error) {
+        throw error;
+      }
+
+      setGods(data || []);
+    } catch (error) {
+      console.error('Error fetching gods:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleViewDetails = (godName: string) => {
+    setSelectedGod(godName);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedGod(null);
   };
 
   return (
@@ -69,76 +130,86 @@ const OlimpoPage = () => {
       {/* Gods Grid */}
       <section className="pb-20">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredEntities.map((entity) => {
-              const IconComponent = getEntityIcon(entity.id);
-              
-              return (
-                <Card key={entity.id} className="group hover:shadow-olympian transition-all duration-300 overflow-hidden">
-                  <div className="relative h-48 bg-gradient-olympian flex items-center justify-center">
-                    <IconComponent className="h-16 w-16 text-gold" />
-                    <div className="absolute top-4 right-4">
-                      <Badge variant="secondary" className="bg-gold text-primary font-cinzel">
-                        Olímpico
-                      </Badge>
-                    </div>
-                  </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2 font-cinzel text-muted-foreground">Carregando deuses olímpicos...</span>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {filteredGods.map((god) => {
+                  const IconComponent = getGodIcon(god.nome);
                   
-                  <CardHeader>
-                    <CardTitle className="font-cinzel-decorative text-2xl text-primary">
-                      {entity.nome}
-                    </CardTitle>
-                    <CardDescription className="font-cinzel">
-                      {entity.descricao.substring(0, 120)}...
-                    </CardDescription>
-                  </CardHeader>
-
-                  <CardContent className="space-y-4">
-                    {/* Powers */}
-                    {entity.poderes && (
-                      <div>
-                        <h4 className="font-cinzel font-semibold text-sm text-primary mb-2">
-                          Poderes:
-                        </h4>
-                        <div className="flex flex-wrap gap-1">
-                          {entity.poderes.slice(0, 2).map((poder, index) => (
-                            <Badge key={index} variant="outline" className="text-xs font-cinzel">
-                              {poder}
-                            </Badge>
-                          ))}
+                  return (
+                    <Card key={god.id} className="group hover:shadow-olympian transition-all duration-300 overflow-hidden">
+                      <div className="relative h-48 bg-gradient-olympian flex items-center justify-center">
+                        <IconComponent className="h-16 w-16 text-gold" />
+                        <div className="absolute top-4 right-4">
+                          <Badge variant="secondary" className="bg-gold text-primary font-cinzel">
+                            Olímpico
+                          </Badge>
                         </div>
                       </div>
-                    )}
+                      
+                      <CardHeader>
+                        <CardTitle className="font-cinzel-decorative text-2xl text-primary">
+                          {god.nome}
+                        </CardTitle>
+                        <CardDescription className="font-cinzel">
+                          {god.descricao.substring(0, 120)}...
+                        </CardDescription>
+                      </CardHeader>
 
-                    {/* Symbols */}
-                    {entity.simbolos && (
-                      <div>
-                        <h4 className="font-cinzel font-semibold text-sm text-primary mb-2">
-                          Símbolos:
-                        </h4>
-                        <p className="text-sm text-muted-foreground font-cinzel">
-                          {entity.simbolos.join(", ")}
-                        </p>
-                      </div>
-                    )}
+                      <CardContent className="space-y-4">
+                        {/* Powers */}
+                        {god.poderes && god.poderes.length > 0 && (
+                          <div>
+                            <h4 className="font-cinzel font-semibold text-sm text-primary mb-2">
+                              Poderes:
+                            </h4>
+                            <div className="flex flex-wrap gap-1">
+                              {god.poderes.slice(0, 2).map((poder, index) => (
+                                <Badge key={index} variant="outline" className="text-xs font-cinzel capitalize">
+                                  {poder}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
-                    <Button asChild className="w-full font-cinzel">
-                      <Link to={`/entidade/${entity.id}`}>
-                        Ver Detalhes
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                        {/* Symbols */}
+                        {god.simbolos && god.simbolos.length > 0 && (
+                          <div>
+                            <h4 className="font-cinzel font-semibold text-sm text-primary mb-2">
+                              Símbolos:
+                            </h4>
+                            <p className="text-sm text-muted-foreground font-cinzel">
+                              {god.simbolos.slice(0, 3).join(", ")}
+                            </p>
+                          </div>
+                        )}
 
-          {filteredEntities.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-xl text-muted-foreground font-cinzel">
-                Nenhum deus encontrado com os critérios de busca.
-              </p>
-            </div>
+                        <Button 
+                          onClick={() => handleViewDetails(god.nome)}
+                          className="w-full font-cinzel"
+                        >
+                          Ver Detalhes
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              {filteredGods.length === 0 && !loading && (
+                <div className="text-center py-12">
+                  <p className="text-xl text-muted-foreground font-cinzel">
+                    Nenhum deus encontrado com os critérios de busca.
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
       </section>
@@ -194,6 +265,15 @@ const OlimpoPage = () => {
           </div>
         </div>
       </section>
+
+      {/* God Details Modal */}
+      {selectedGod && (
+        <GodDetailsModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          godName={selectedGod}
+        />
+      )}
     </div>
   );
 };
