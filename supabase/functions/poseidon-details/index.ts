@@ -8,7 +8,7 @@ const corsHeaders = {
 
 interface RequestBody {
   nome?: string;
-  type?: 'god' | 'blog';
+  type?: 'god' | 'blog' | 'primordial';
   id?: string;
   action?: string;
 }
@@ -85,6 +85,117 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ post }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Handle primordial entity requests
+    if (type === 'primordial') {
+      // List all primordial entities
+      if (action === 'list') {
+        const { data: primordials, error } = await supabase
+          .from('primordiais')
+          .select('*')
+          .order('created_at', { ascending: false })
+
+        if (error) {
+          console.error('Erro do Supabase (primordials list):', error)
+          return new Response(
+            JSON.stringify({ error: 'Erro ao buscar primordiais' }),
+            { 
+              status: 500, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          )
+        }
+
+        return new Response(
+          JSON.stringify(primordials),
+          { 
+            status: 200, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+
+      // Get specific primordial entity
+      if (!nome) {
+        return new Response(
+          JSON.stringify({ error: 'Nome é obrigatório para primordiais' }),
+          { 
+            status: 400, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+
+      const { data: primordials, error } = await supabase
+        .from('primordiais')
+        .select('*')
+        .ilike('nome', `%${nome}%`)
+
+      if (error) {
+        console.error('Erro do Supabase (primordial):', error)
+        return new Response(
+          JSON.stringify({ error: 'Primordial não encontrado' }),
+          { 
+            status: 404, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+
+      // Usar Gemini para gerar conteúdo adicional se necessário
+      const geminiApiKey = Deno.env.get('VER_MAIS_PRIMORDIAIS')
+      if (geminiApiKey && primordials.length > 0) {
+        const primordial = primordials[0]
+        if (!primordial.descricao || primordial.descricao.length < 100) {
+          try {
+            const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [{
+                    text: `Gere uma descrição completa, poderes, domínios, símbolos sobre o ser primordial da mitologia grega ${nome}, em tom educativo e clássico. Formate a resposta em JSON com as propriedades: descricao, poderes, dominios, simbolos.`
+                  }]
+                }],
+                generationConfig: {
+                  temperature: 0.7,
+                  maxOutputTokens: 1000,
+                }
+              })
+            })
+
+            if (geminiResponse.ok) {
+              const geminiData = await geminiResponse.json()
+              const generatedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
+              
+              if (generatedText) {
+                try {
+                  const parsedContent = JSON.parse(generatedText)
+                  primordial.descricao = parsedContent.descricao || primordial.descricao
+                  primordial.poderes = parsedContent.poderes || primordial.poderes
+                  primordial.dominios = parsedContent.dominios || primordial.dominios
+                  primordial.simbolos = parsedContent.simbolos || primordial.simbolos
+                } catch (parseError) {
+                  console.log('Erro ao parsear resposta do Gemini, usando dados do banco')
+                }
+              }
+            }
+          } catch (geminiError) {
+            console.log('Erro ao conectar com Gemini, usando dados do banco')
+          }
+        }
+      }
+
+      return new Response(
+        JSON.stringify(primordials),
         { 
           status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

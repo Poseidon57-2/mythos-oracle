@@ -1,28 +1,77 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Globe, Moon, Sun } from "lucide-react";
-import { mythEntities } from "@/data/mockData";
+import { Search, Globe, Moon, Sun, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import PrimordialDetailsModal from "@/components/PrimordialDetailsModal";
+
+interface PrimordialEntity {
+  id: string;
+  nome: string;
+  descricao: string;
+  dominios: string[];
+  poderes: string[];
+  simbolos: string[];
+  tags: string[];
+  imagem_url?: string;
+}
 
 const PrimordiaisPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [primordials, setPrimordials] = useState<PrimordialEntity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedPrimordial, setSelectedPrimordial] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
-  const primordialEntities = mythEntities.filter(entity => entity.categoria === "primordial");
-  const filteredEntities = primordialEntities.filter(entity => 
+  const filteredEntities = primordials.filter(entity => 
     entity.nome.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    entity.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+    (entity.tags && entity.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())))
   );
 
-  const getPrimordialIcon = (entityId: string) => {
-    switch(entityId) {
-      case "gaia": return Globe;
-      case "nyx": return Moon;
-      case "helios": return Sun;
-      default: return Globe;
+  useEffect(() => {
+    fetchPrimordials();
+  }, []);
+
+  const fetchPrimordials = async () => {
+    try {
+      const response = await supabase.functions.invoke('poseidon-details', {
+        body: { 
+          type: 'primordial',
+          action: 'list'
+        }
+      });
+
+      if (response.error) {
+        console.error('Error fetching primordials:', response.error);
+      } else {
+        setPrimordials(response.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching primordials:', error);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const getPrimordialIcon = (entityName: string) => {
+    const name = entityName.toLowerCase();
+    if (name.includes("gaia")) return Globe;
+    if (name.includes("nyx")) return Moon;
+    if (name.includes("helios")) return Sun;
+    return Globe;
+  };
+
+  const handleViewDetails = (primordialName: string) => {
+    setSelectedPrimordial(primordialName);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedPrimordial(null);
   };
 
   return (
@@ -70,71 +119,81 @@ const PrimordiaisPage = () => {
       {/* Primordials Grid */}
       <section className="pb-20">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredEntities.map((entity) => {
-              const IconComponent = getPrimordialIcon(entity.id);
-              
-              return (
-                <Card key={entity.id} className="group hover:shadow-olympian transition-all duration-300 overflow-hidden">
-                  <div className="relative h-48 bg-bronze flex items-center justify-center">
-                    <IconComponent className="h-16 w-16 text-gold" />
-                    <div className="absolute top-4 right-4">
-                      <Badge variant="secondary" className="bg-bronze text-white font-cinzel">
-                        Primordial
-                      </Badge>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-gold" />
+              <span className="ml-2 font-cinzel text-muted-foreground">
+                Carregando seres primordiais...
+              </span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {filteredEntities.map((entity) => {
+                const IconComponent = getPrimordialIcon(entity.nome);
+                
+                return (
+                  <Card key={entity.id} className="group hover:shadow-olympian transition-all duration-300 overflow-hidden">
+                    <div className="relative h-48 bg-bronze flex items-center justify-center">
+                      <IconComponent className="h-16 w-16 text-gold" />
+                      <div className="absolute top-4 right-4">
+                        <Badge variant="secondary" className="bg-bronze text-white font-cinzel">
+                          Primordial
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                  
-                  <CardHeader>
-                    <CardTitle className="font-cinzel-decorative text-2xl text-primary">
-                      {entity.nome}
-                    </CardTitle>
-                    <CardDescription className="font-cinzel">
-                      {entity.descricao.substring(0, 120)}...
-                    </CardDescription>
-                  </CardHeader>
+                    
+                    <CardHeader>
+                      <CardTitle className="font-cinzel-decorative text-2xl text-primary">
+                        {entity.nome}
+                      </CardTitle>
+                      <CardDescription className="font-cinzel">
+                        {entity.descricao ? entity.descricao.substring(0, 120) + "..." : "Descrição não disponível"}
+                      </CardDescription>
+                    </CardHeader>
 
-                  <CardContent className="space-y-4">
-                    {/* Powers */}
-                    {entity.poderes && (
-                      <div>
-                        <h4 className="font-cinzel font-semibold text-sm text-primary mb-2">
-                          Poderes Primordiais:
-                        </h4>
-                        <div className="flex flex-wrap gap-1">
-                          {entity.poderes.slice(0, 2).map((poder, index) => (
-                            <Badge key={index} variant="outline" className="text-xs font-cinzel">
-                              {poder}
-                            </Badge>
-                          ))}
+                    <CardContent className="space-y-4">
+                      {/* Domains */}
+                      {entity.dominios && entity.dominios.length > 0 && (
+                        <div>
+                          <h4 className="font-cinzel font-semibold text-sm text-primary mb-2">
+                            Domínios:
+                          </h4>
+                          <div className="flex flex-wrap gap-1">
+                            {entity.dominios.slice(0, 2).map((dominio, index) => (
+                              <Badge key={index} variant="outline" className="text-xs font-cinzel">
+                                {dominio}
+                              </Badge>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Symbols */}
-                    {entity.simbolos && (
-                      <div>
-                        <h4 className="font-cinzel font-semibold text-sm text-primary mb-2">
-                          Manifestações:
-                        </h4>
-                        <p className="text-sm text-muted-foreground font-cinzel">
-                          {entity.simbolos.join(", ")}
-                        </p>
-                      </div>
-                    )}
+                      {/* Symbols */}
+                      {entity.simbolos && entity.simbolos.length > 0 && (
+                        <div>
+                          <h4 className="font-cinzel font-semibold text-sm text-primary mb-2">
+                            Manifestações:
+                          </h4>
+                          <p className="text-sm text-muted-foreground font-cinzel">
+                            {entity.simbolos.slice(0, 2).join(", ")}
+                          </p>
+                        </div>
+                      )}
 
-                    <Button asChild className="w-full font-cinzel">
-                      <Link to={`/entidade/${entity.id}`}>
+                      <Button 
+                        onClick={() => handleViewDetails(entity.nome)}
+                        className="w-full font-cinzel"
+                      >
                         Ver Detalhes
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
 
-          {filteredEntities.length === 0 && (
+          {!loading && filteredEntities.length === 0 && (
             <div className="text-center py-12">
               <p className="text-xl text-muted-foreground font-cinzel">
                 Nenhum ser primordial encontrado com os critérios de busca.
@@ -229,6 +288,15 @@ const PrimordiaisPage = () => {
           </div>
         </div>
       </section>
+
+      {/* Primordial Details Modal */}
+      {selectedPrimordial && (
+        <PrimordialDetailsModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          primordialName={selectedPrimordial}
+        />
+      )}
     </div>
   );
 };
