@@ -8,7 +8,7 @@ const corsHeaders = {
 
 interface RequestBody {
   nome?: string;
-  type?: 'god' | 'blog' | 'primordial';
+  type?: 'god' | 'blog' | 'primordial' | 'minor';
   id?: string;
   action?: string;
 }
@@ -196,6 +196,117 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify(primordials),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Handle minor gods requests
+    if (type === 'minor') {
+      // List all minor gods
+      if (action === 'list') {
+        const { data: minorGods, error } = await supabase
+          .from('deuses_menores')
+          .select('*')
+          .order('created_at', { ascending: false })
+
+        if (error) {
+          console.error('Erro do Supabase (minor gods list):', error)
+          return new Response(
+            JSON.stringify({ error: 'Erro ao buscar deuses menores' }),
+            { 
+              status: 500, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          )
+        }
+
+        return new Response(
+          JSON.stringify(minorGods),
+          { 
+            status: 200, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+
+      // Get specific minor god
+      if (!nome) {
+        return new Response(
+          JSON.stringify({ error: 'Nome é obrigatório para deuses menores' }),
+          { 
+            status: 400, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+
+      const { data: minorGods, error } = await supabase
+        .from('deuses_menores')
+        .select('*')
+        .ilike('nome', `%${nome}%`)
+
+      if (error) {
+        console.error('Erro do Supabase (minor god):', error)
+        return new Response(
+          JSON.stringify({ error: 'Deus menor não encontrado' }),
+          { 
+            status: 404, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+
+      // Usar Gemini para gerar conteúdo adicional se necessário
+      const geminiApiKey = Deno.env.get('VER_MAIS_DEUSES_MENORES')
+      if (geminiApiKey && minorGods.length > 0) {
+        const minorGod = minorGods[0]
+        if (!minorGod.descricao || minorGod.descricao.length < 100) {
+          try {
+            const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [{
+                    text: `Gere uma descrição completa, poderes, domínios, símbolos sobre o deus menor da mitologia grega ${nome}, em tom educativo e clássico. Formate a resposta em JSON com as propriedades: descricao, poderes, dominios, simbolos.`
+                  }]
+                }],
+                generationConfig: {
+                  temperature: 0.7,
+                  maxOutputTokens: 1000,
+                }
+              })
+            })
+
+            if (geminiResponse.ok) {
+              const geminiData = await geminiResponse.json()
+              const generatedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
+              
+              if (generatedText) {
+                try {
+                  const parsedContent = JSON.parse(generatedText)
+                  minorGod.descricao = parsedContent.descricao || minorGod.descricao
+                  minorGod.poderes = parsedContent.poderes || minorGod.poderes
+                  minorGod.dominios = parsedContent.dominios || minorGod.dominios
+                  minorGod.simbolos = parsedContent.simbolos || minorGod.simbolos
+                } catch (parseError) {
+                  console.log('Erro ao parsear resposta do Gemini, usando dados do banco')
+                }
+              }
+            }
+          } catch (geminiError) {
+            console.log('Erro ao conectar com Gemini, usando dados do banco')
+          }
+        }
+      }
+
+      return new Response(
+        JSON.stringify(minorGods),
         { 
           status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

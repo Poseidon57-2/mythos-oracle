@@ -1,27 +1,75 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Leaf, Music, Heart } from "lucide-react";
-import { mythEntities } from "@/data/mockData";
+import { Search, Leaf, Music, Heart, Star, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import MinorGodDetailsModal from "@/components/MinorGodDetailsModal";
+
+interface MinorGod {
+  id: string;
+  nome: string;
+  descricao: string;
+  dominios: string[];
+  poderes: string[];
+  simbolos: string[];
+  tags: string[];
+}
 
 const MenoresPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [minorGods, setMinorGods] = useState<MinorGod[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedGod, setSelectedGod] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
   
-  const menorEntities = mythEntities.filter(entity => entity.categoria === "menor");
-  const filteredEntities = menorEntities.filter(entity => 
+  const filteredEntities = minorGods.filter(entity => 
     entity.nome.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    entity.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+    (entity.tags && entity.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())))
   );
 
-  const getMinorIcon = (entityId: string) => {
-    switch(entityId) {
-      case "pan": return Music;
-      case "afrodite": return Heart;
-      default: return Leaf;
+  const fetchMinorGods = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.functions.invoke('poseidon-details', {
+        body: { 
+          type: 'minor',
+          action: 'list'
+        }
+      });
+
+      if (error) {
+        console.error('Erro ao buscar deuses menores:', error);
+        return;
+      }
+
+      if (data) {
+        setMinorGods(data);
+      }
+    } catch (error) {
+      console.error('Erro na requisição:', error);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchMinorGods();
+  }, []);
+
+  const getMinorIcon = (godName: string) => {
+    const name = godName.toLowerCase();
+    if (name.includes("ninfa")) return Leaf;
+    if (name.includes("satiro") || name.includes("pan")) return Music;
+    if (name.includes("afrodite") || name.includes("eros")) return Heart;
+    return Star;
+  };
+
+  const handleViewDetails = (godName: string) => {
+    setSelectedGod(godName);
+    setModalOpen(true);
   };
 
   return (
@@ -106,76 +154,92 @@ const MenoresPage = () => {
       {/* Minor Deities Grid */}
       <section className="pb-20">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredEntities.map((entity) => {
-              const IconComponent = getMinorIcon(entity.id);
-              
-              return (
-                <Card key={entity.id} className="group hover:shadow-olympian transition-all duration-300 overflow-hidden">
-                  <div className="relative h-48 bg-gradient-gold flex items-center justify-center">
-                    <IconComponent className="h-16 w-16 text-primary" />
-                    <div className="absolute top-4 right-4">
-                      <Badge variant="secondary" className="bg-primary text-white font-cinzel">
-                        Menor
-                      </Badge>
-                    </div>
-                  </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2 font-cinzel text-muted-foreground">
+                Carregando deuses menores...
+              </span>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {filteredEntities.map((entity) => {
+                  const IconComponent = getMinorIcon(entity.nome);
                   
-                  <CardHeader>
-                    <CardTitle className="font-cinzel-decorative text-2xl text-primary">
-                      {entity.nome}
-                    </CardTitle>
-                    <CardDescription className="font-cinzel">
-                      {entity.descricao.substring(0, 120)}...
-                    </CardDescription>
-                  </CardHeader>
-
-                  <CardContent className="space-y-4">
-                    {/* Powers */}
-                    {entity.poderes && (
-                      <div>
-                        <h4 className="font-cinzel font-semibold text-sm text-primary mb-2">
-                          Habilidades:
-                        </h4>
-                        <div className="flex flex-wrap gap-1">
-                          {entity.poderes.slice(0, 2).map((poder, index) => (
-                            <Badge key={index} variant="outline" className="text-xs font-cinzel">
-                              {poder}
-                            </Badge>
-                          ))}
+                  return (
+                    <Card key={entity.id} className="group hover:shadow-olympian transition-all duration-300 overflow-hidden">
+                      <div className="relative h-48 bg-gradient-subtle flex items-center justify-center">
+                        <IconComponent className="h-16 w-16 text-primary" />
+                        <div className="absolute top-4 right-4">
+                          <Badge variant="secondary" className="bg-primary text-white font-cinzel">
+                            Menor
+                          </Badge>
                         </div>
                       </div>
-                    )}
+                      
+                      <CardHeader>
+                        <CardTitle className="font-cinzel-decorative text-xl text-primary">
+                          {entity.nome}
+                        </CardTitle>
+                        <CardDescription className="font-cinzel">
+                          {entity.descricao ? entity.descricao.substring(0, 100) + "..." : ""}
+                        </CardDescription>
+                      </CardHeader>
 
-                    {/* Symbols */}
-                    {entity.simbolos && (
-                      <div>
-                        <h4 className="font-cinzel font-semibold text-sm text-primary mb-2">
-                          Símbolos:
-                        </h4>
-                        <p className="text-sm text-muted-foreground font-cinzel">
-                          {entity.simbolos.join(", ")}
-                        </p>
-                      </div>
-                    )}
+                      <CardContent className="space-y-4">
+                        {/* Domains */}
+                        {entity.dominios && entity.dominios.length > 0 && (
+                          <div>
+                            <h4 className="font-cinzel font-semibold text-sm text-primary mb-2">
+                              Domínios:
+                            </h4>
+                            <div className="flex flex-wrap gap-1">
+                              {entity.dominios.slice(0, 2).map((dominio, index) => (
+                                <Badge key={index} variant="outline" className="text-xs font-cinzel">
+                                  {dominio}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
-                    <Button asChild className="w-full font-cinzel">
-                      <Link to={`/entidade/${entity.id}`}>
-                        Ver Detalhes
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                        {/* Symbols */}
+                        {entity.simbolos && entity.simbolos.length > 0 && (
+                          <div>
+                            <h4 className="font-cinzel font-semibold text-sm text-primary mb-2">
+                              Símbolos:
+                            </h4>
+                            <div className="flex flex-wrap gap-1">
+                              {entity.simbolos.slice(0, 3).map((simbolo, index) => (
+                                <Badge key={index} className="bg-gold/20 text-primary text-xs font-cinzel">
+                                  {simbolo}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
-          {filteredEntities.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-xl text-muted-foreground font-cinzel">
-                Nenhuma divindade menor encontrada com os critérios de busca.
-              </p>
-            </div>
+                        <Button 
+                          onClick={() => handleViewDetails(entity.nome)}
+                          className="w-full font-cinzel"
+                        >
+                          Ver Detalhes
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              {filteredEntities.length === 0 && !loading && (
+                <div className="text-center py-12">
+                  <p className="text-xl text-muted-foreground font-cinzel">
+                    Nenhuma divindade menor encontrada com os critérios de busca.
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
       </section>
@@ -231,6 +295,13 @@ const MenoresPage = () => {
           </div>
         </div>
       </section>
+
+      {/* Modal */}
+      <MinorGodDetailsModal 
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        godName={selectedGod || ""}
+      />
     </div>
   );
 };
