@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,16 @@ export const BlogDetailsModal = ({ isOpen, onClose, postId }: BlogDetailsModalPr
   const [post, setPost] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch post details when modal opens and postId changes
+  useEffect(() => {
+    if (isOpen && postId) {
+      fetchPostDetails(postId);
+    } else if (!isOpen) {
+      setPost(null);
+      setError(null);
+    }
+  }, [isOpen, postId]);
 
   const fetchPostDetails = async (id: string) => {
     setLoading(true);
