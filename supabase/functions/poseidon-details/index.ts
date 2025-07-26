@@ -22,7 +22,7 @@ serve(async (req) => {
     const { nome, type = 'god', id, action }: RequestBody = await req.json()
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseKey = Deno.env.get('VER_MAIS_POSEIDON')!
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     
     const supabase = createClient(supabaseUrl, supabaseKey)
 
