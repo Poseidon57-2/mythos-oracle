@@ -1,27 +1,72 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Sword, Shield, Target } from "lucide-react";
-import { mythEntities } from "@/data/mockData";
+import { Search, Sword, Shield, Target, Crown } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import HeroDetailsModal from "@/components/HeroDetailsModal";
+
+interface HeroEntity {
+  id: string;
+  nome: string;
+  descricao: string;
+  habilidades: string[];
+  equipamentos: string[];
+  simbolos: string[];
+  tags: string[];
+}
 
 const HeroisPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [heroes, setHeroes] = useState<HeroEntity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedHero, setSelectedHero] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
-  const heroEntities = mythEntities.filter(entity => entity.categoria === "heroi");
-  const filteredEntities = heroEntities.filter(entity => 
-    entity.nome.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    entity.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredHeroes = heroes.filter(hero => 
+    hero.nome.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (hero.tags && hero.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())))
   );
 
-  const getHeroIcon = (entityId: string) => {
-    switch(entityId) {
-      case "hercules": return Shield;
-      case "aquiles": return Target;
-      default: return Sword;
+  const fetchHeroes = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.functions.invoke('poseidon-details', {
+        body: {
+          type: 'hero',
+          action: 'list'
+        }
+      });
+
+      if (error) {
+        console.error('Erro ao buscar heróis:', error);
+      } else if (data) {
+        setHeroes(data);
+      }
+    } catch (error) {
+      console.error('Erro ao conectar com a API:', error);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchHeroes();
+  }, []);
+
+  const getHeroIcon = (heroName: string) => {
+    const name = heroName.toLowerCase();
+    if (name.includes('hercules') || name.includes('héracles')) return Crown;
+    if (name.includes('aquiles')) return Target;
+    if (name.includes('perseu')) return Shield;
+    return Sword;
+  };
+
+  const handleHeroDetails = (heroName: string) => {
+    setSelectedHero(heroName);
+    setIsModalOpen(true);
   };
 
   return (
@@ -69,71 +114,80 @@ const HeroisPage = () => {
       {/* Heroes Grid */}
       <section className="pb-20">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredEntities.map((entity) => {
-              const IconComponent = getHeroIcon(entity.id);
-              
-              return (
-                <Card key={entity.id} className="group hover:shadow-olympian transition-all duration-300 overflow-hidden">
-                  <div className="relative h-48 bg-gradient-gold flex items-center justify-center">
-                    <IconComponent className="h-16 w-16 text-primary" />
-                    <div className="absolute top-4 right-4">
-                      <Badge variant="secondary" className="bg-primary text-white font-cinzel">
-                        Herói
-                      </Badge>
+          {loading ? (
+            <div className="text-center py-12">
+              <p className="text-xl text-muted-foreground font-cinzel">
+                Carregando heróis...
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {filteredHeroes.map((hero) => {
+                const IconComponent = getHeroIcon(hero.nome);
+                
+                return (
+                  <Card key={hero.id} className="group hover:shadow-olympian transition-all duration-300 overflow-hidden">
+                    <div className="relative h-48 bg-gradient-gold flex items-center justify-center">
+                      <IconComponent className="h-16 w-16 text-primary" />
+                      <div className="absolute top-4 right-4">
+                        <Badge variant="secondary" className="bg-primary text-white font-cinzel">
+                          Herói
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                  
-                  <CardHeader>
-                    <CardTitle className="font-cinzel-decorative text-2xl text-primary">
-                      {entity.nome}
-                    </CardTitle>
-                    <CardDescription className="font-cinzel">
-                      {entity.descricao.substring(0, 120)}...
-                    </CardDescription>
-                  </CardHeader>
+                    
+                    <CardHeader>
+                      <CardTitle className="font-cinzel-decorative text-2xl text-primary">
+                        {hero.nome}
+                      </CardTitle>
+                      <CardDescription className="font-cinzel">
+                        {hero.descricao ? `${hero.descricao.substring(0, 120)}...` : 'Herói lendário da mitologia grega'}
+                      </CardDescription>
+                    </CardHeader>
 
-                  <CardContent className="space-y-4">
-                    {/* Powers/Abilities */}
-                    {entity.poderes && (
-                      <div>
-                        <h4 className="font-cinzel font-semibold text-sm text-primary mb-2">
-                          Habilidades:
-                        </h4>
-                        <div className="flex flex-wrap gap-1">
-                          {entity.poderes.slice(0, 2).map((poder, index) => (
-                            <Badge key={index} variant="outline" className="text-xs font-cinzel">
-                              {poder}
-                            </Badge>
-                          ))}
+                    <CardContent className="space-y-4">
+                      {/* Abilities */}
+                      {hero.habilidades && hero.habilidades.length > 0 && (
+                        <div>
+                          <h4 className="font-cinzel font-semibold text-sm text-primary mb-2">
+                            Habilidades:
+                          </h4>
+                          <div className="flex flex-wrap gap-1">
+                            {hero.habilidades.slice(0, 2).map((habilidade, index) => (
+                              <Badge key={index} variant="outline" className="text-xs font-cinzel">
+                                {habilidade}
+                              </Badge>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Symbols/Equipment */}
-                    {entity.simbolos && (
-                      <div>
-                        <h4 className="font-cinzel font-semibold text-sm text-primary mb-2">
-                          Equipamentos:
-                        </h4>
-                        <p className="text-sm text-muted-foreground font-cinzel">
-                          {entity.simbolos.join(", ")}
-                        </p>
-                      </div>
-                    )}
+                      {/* Equipment */}
+                      {hero.equipamentos && hero.equipamentos.length > 0 && (
+                        <div>
+                          <h4 className="font-cinzel font-semibold text-sm text-primary mb-2">
+                            Equipamentos:
+                          </h4>
+                          <p className="text-sm text-muted-foreground font-cinzel">
+                            {hero.equipamentos.slice(0, 2).join(", ")}
+                          </p>
+                        </div>
+                      )}
 
-                    <Button asChild className="w-full font-cinzel">
-                      <Link to={`/entidade/${entity.id}`}>
+                      <Button 
+                        onClick={() => handleHeroDetails(hero.nome)} 
+                        className="w-full font-cinzel"
+                      >
                         Ver Detalhes
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
 
-          {filteredEntities.length === 0 && (
+          {!loading && filteredHeroes.length === 0 && (
             <div className="text-center py-12">
               <p className="text-xl text-muted-foreground font-cinzel">
                 Nenhum herói encontrado com os critérios de busca.
@@ -194,6 +248,18 @@ const HeroisPage = () => {
           </div>
         </div>
       </section>
+
+      {/* Hero Details Modal */}
+      {selectedHero && (
+        <HeroDetailsModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedHero(null);
+          }}
+          heroName={selectedHero}
+        />
+      )}
     </div>
   );
 };

@@ -8,7 +8,7 @@ const corsHeaders = {
 
 interface RequestBody {
   nome?: string;
-  type?: 'god' | 'blog' | 'primordial' | 'minor';
+  type?: 'god' | 'blog' | 'primordial' | 'minor' | 'hero';
   id?: string;
   action?: string;
 }
@@ -196,6 +196,117 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify(primordials),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Handle hero requests
+    if (type === 'hero') {
+      // List all heroes
+      if (action === 'list') {
+        const { data: heroes, error } = await supabase
+          .from('herois')
+          .select('*')
+          .order('created_at', { ascending: false })
+
+        if (error) {
+          console.error('Erro do Supabase (heroes list):', error)
+          return new Response(
+            JSON.stringify({ error: 'Erro ao buscar heróis' }),
+            { 
+              status: 500, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          )
+        }
+
+        return new Response(
+          JSON.stringify(heroes),
+          { 
+            status: 200, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+
+      // Get specific hero
+      if (!nome) {
+        return new Response(
+          JSON.stringify({ error: 'Nome é obrigatório para heróis' }),
+          { 
+            status: 400, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+
+      const { data: heroes, error } = await supabase
+        .from('herois')
+        .select('*')
+        .ilike('nome', `%${nome}%`)
+
+      if (error) {
+        console.error('Erro do Supabase (hero):', error)
+        return new Response(
+          JSON.stringify({ error: 'Herói não encontrado' }),
+          { 
+            status: 404, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+
+      // Usar Gemini para gerar conteúdo adicional se necessário
+      const geminiApiKey = Deno.env.get('VER_MAIS_HEROIS')
+      if (geminiApiKey && heroes.length > 0) {
+        const hero = heroes[0]
+        if (!hero.descricao || hero.descricao.length < 100) {
+          try {
+            const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [{
+                    text: `Gere uma descrição completa, habilidades, equipamentos, símbolos sobre o herói da mitologia grega ${nome}, em tom educativo e clássico. Formate a resposta em JSON com as propriedades: descricao, habilidades, equipamentos, simbolos.`
+                  }]
+                }],
+                generationConfig: {
+                  temperature: 0.7,
+                  maxOutputTokens: 1000,
+                }
+              })
+            })
+
+            if (geminiResponse.ok) {
+              const geminiData = await geminiResponse.json()
+              const generatedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
+              
+              if (generatedText) {
+                try {
+                  const parsedContent = JSON.parse(generatedText)
+                  hero.descricao = parsedContent.descricao || hero.descricao
+                  hero.habilidades = parsedContent.habilidades || hero.habilidades
+                  hero.equipamentos = parsedContent.equipamentos || hero.equipamentos
+                  hero.simbolos = parsedContent.simbolos || hero.simbolos
+                } catch (parseError) {
+                  console.log('Erro ao parsear resposta do Gemini, usando dados do banco')
+                }
+              }
+            }
+          } catch (geminiError) {
+            console.log('Erro ao conectar com Gemini, usando dados do banco')
+          }
+        }
+      }
+
+      return new Response(
+        JSON.stringify(heroes),
         { 
           status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
