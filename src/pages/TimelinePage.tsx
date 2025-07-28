@@ -1,29 +1,70 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Clock, ChevronDown, ChevronUp, Globe, Swords, Crown, Star } from "lucide-react";
-import { timelineEvents } from "@/data/mockData";
+import { Clock, ChevronDown, ChevronUp, Globe, Swords, Crown, Star, Calendar, Users, Tag } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+
+interface TimelineEvent {
+  id: string;
+  nome: string;
+  descricao: string;
+  era: string | null;
+  tipo: string | null;
+  data_estimada: string | null;
+  personagens: string[] | null;
+  tags: string[] | null;
+  icon: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 const TimelinePage = () => {
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const getCategoryIcon = (category: string) => {
-    switch(category) {
-      case "cosmogonia": return Globe;
-      case "guerra": return Swords;
-      case "nascimento": return Star;
-      default: return Crown;
+  useEffect(() => {
+    fetchTimelineEvents();
+  }, []);
+
+  const fetchTimelineEvents = async () => {
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase.functions.invoke('poseidon-details', {
+        body: {
+          type: 'timeline',
+          action: 'list'
+        }
+      });
+
+      if (error) throw error;
+      
+      setTimelineEvents(data?.events || []);
+    } catch (error) {
+      console.error('Erro ao buscar eventos da timeline:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getCategoryColor = (category: string) => {
-    switch(category) {
-      case "cosmogonia": return "bg-bronze text-white";
-      case "guerra": return "bg-destructive text-white";
-      case "nascimento": return "bg-gradient-gold text-primary";
-      default: return "bg-gradient-olympian text-white";
-    }
+  const getEraIcon = (era: string | null) => {
+    const eraLower = era?.toLowerCase() || '';
+    if (eraLower.includes('primordial')) return Globe;
+    if (eraLower.includes('titã') || eraLower.includes('titan')) return Crown;
+    if (eraLower.includes('olímpic') || eraLower.includes('olimpic')) return Star;
+    if (eraLower.includes('heroic') || eraLower.includes('herói')) return Swords;
+    return Calendar;
+  };
+
+  const getEraColor = (era: string | null) => {
+    const eraLower = era?.toLowerCase() || '';
+    if (eraLower.includes('primordial')) return "bg-bronze text-white";
+    if (eraLower.includes('titã') || eraLower.includes('titan')) return "bg-primary text-white";
+    if (eraLower.includes('olímpic') || eraLower.includes('olimpic')) return "bg-gradient-gold text-primary";
+    if (eraLower.includes('heroic') || eraLower.includes('herói')) return "bg-destructive text-white";
+    return "bg-gradient-olympian text-white";
   };
 
   const toggleExpand = (eventId: string) => {
@@ -109,68 +150,118 @@ const TimelinePage = () => {
               Eventos Principais
             </h2>
             
-            <div className="relative">
-              {/* Timeline Line */}
-              <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-bronze via-primary to-gold"></div>
-              
-              <div className="space-y-8">
-                {timelineEvents.map((event, index) => {
-                  const IconComponent = getCategoryIcon(event.categoria);
-                  const isExpanded = expandedEvent === event.id;
-                  
-                  return (
-                    <div key={event.id} className="relative">
-                      {/* Timeline Dot */}
-                      <div className={`absolute left-6 w-4 h-4 rounded-full border-2 border-white ${getCategoryColor(event.categoria)}`}></div>
-                      
-                      {/* Event Card */}
-                      <div className="ml-16">
-                        <Card className="hover:shadow-olympian transition-all duration-300">
-                          <CardHeader 
-                            className="cursor-pointer"
-                            onClick={() => toggleExpand(event.id)}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-4">
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${getCategoryColor(event.categoria)}`}>
-                                  <IconComponent className="h-6 w-6" />
-                                </div>
-                                <div>
-                                  <CardTitle className="font-cinzel-decorative text-xl text-primary">
-                                    {event.titulo}
-                                  </CardTitle>
-                                  <CardDescription className="font-cinzel font-semibold text-gold">
-                                    {event.periodo}
-                                  </CardDescription>
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Badge className={`font-cinzel ${getCategoryColor(event.categoria)}`}>
-                                  {event.categoria}
-                                </Badge>
-                                {isExpanded ? (
-                                  <ChevronUp className="h-5 w-5 text-muted-foreground" />
-                                ) : (
-                                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                                )}
-                              </div>
-                            </div>
-                          </CardHeader>
-                          
-                          {isExpanded && (
-                            <CardContent>
-                              <p className="font-cinzel text-muted-foreground leading-relaxed">
-                                {event.descricao}
-                              </p>
-                            </CardContent>
-                          )}
-                        </Card>
-                      </div>
-                    </div>
-                  );
-                })}
+            {loading ? (
+              <div className="text-center py-12">
+                <Clock className="h-12 w-12 text-gold mx-auto mb-4 animate-spin" />
+                <p className="text-xl font-cinzel text-muted-foreground">
+                  Carregando linha do tempo...
+                </p>
               </div>
-            </div>
+            ) : (
+              <div className="relative">
+                {/* Timeline Line */}
+                <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-bronze via-primary to-gold"></div>
+                
+                <div className="space-y-8">
+                  {timelineEvents.map((event, index) => {
+                    const IconComponent = getEraIcon(event.era);
+                    const isExpanded = expandedEvent === event.id;
+                  
+                    return (
+                      <div key={event.id} className="relative">
+                        {/* Timeline Dot */}
+                        <div className={`absolute left-6 w-4 h-4 rounded-full border-2 border-white ${getEraColor(event.era)}`}></div>
+                        
+                        {/* Event Card */}
+                        <div className="ml-16">
+                          <Card className="hover:shadow-olympian transition-all duration-300">
+                            <CardHeader 
+                              className="cursor-pointer"
+                              onClick={() => toggleExpand(event.id)}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-4">
+                                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${getEraColor(event.era)}`}>
+                                    <IconComponent className="h-6 w-6" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <CardTitle className="font-cinzel-decorative text-xl text-primary">
+                                      {event.nome}
+                                    </CardTitle>
+                                    <CardDescription className="font-cinzel font-semibold text-gold">
+                                      {event.era || 'Era Desconhecida'} • {event.data_estimada || 'Data indefinida'}
+                                    </CardDescription>
+                                    {event.tipo && (
+                                      <p className="text-sm text-muted-foreground font-cinzel mt-1">
+                                        {event.tipo}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Badge className={`font-cinzel ${getEraColor(event.era)}`}>
+                                    {event.era || 'Era Desconhecida'}
+                                  </Badge>
+                                  {isExpanded ? (
+                                    <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                                  ) : (
+                                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                                  )}
+                                </div>
+                              </div>
+                            </CardHeader>
+                            
+                            {isExpanded && (
+                              <CardContent className="space-y-4">
+                                <p className="font-cinzel text-muted-foreground leading-relaxed">
+                                  {event.descricao}
+                                </p>
+                                
+                                {event.personagens && event.personagens.length > 0 && (
+                                  <div>
+                                    <div className="flex items-center space-x-2 mb-2">
+                                      <Users className="h-4 w-4 text-gold" />
+                                      <span className="text-sm font-cinzel font-semibold text-primary">
+                                        Personagens Envolvidos:
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      {event.personagens.map((personagem, idx) => (
+                                        <Badge key={idx} variant="secondary" className="font-cinzel text-xs">
+                                          {personagem}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {event.tags && event.tags.length > 0 && (
+                                  <div>
+                                    <div className="flex items-center space-x-2 mb-2">
+                                      <Tag className="h-4 w-4 text-gold" />
+                                      <span className="text-sm font-cinzel font-semibold text-primary">
+                                        Tags:
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      {event.tags.map((tag, idx) => (
+                                        <Badge key={idx} variant="outline" className="font-cinzel text-xs">
+                                          {tag}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </CardContent>
+                            )}
+                          </Card>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>

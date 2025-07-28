@@ -8,7 +8,7 @@ const corsHeaders = {
 
 interface RequestBody {
   nome?: string;
-  type?: 'god' | 'blog' | 'primordial' | 'minor' | 'hero';
+  type?: 'god' | 'blog' | 'primordial' | 'minor' | 'hero' | 'timeline';
   id?: string;
   action?: string;
 }
@@ -312,6 +312,21 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       )
+    }
+
+    // Handle timeline requests
+    if (type === 'timeline') {
+      console.log('Fetching timeline events');
+      const { data, error } = await supabase
+        .from('eventos_mitologicos')
+        .select('*')
+        .order('created_at', { ascending: true });
+      
+      if (error) throw error;
+      
+      return new Response(JSON.stringify({ events: data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Handle minor gods requests
